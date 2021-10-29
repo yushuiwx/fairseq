@@ -550,7 +550,11 @@ class Trainer(object):
 
         if extra_state is not None:
             itr_state = extra_state["train_iterator"]
-            epoch = itr_state["epoch"]
+            if type(itr_state) == list:
+                assert len(itr_state) == self.data_parallel_world_size
+                itr_state = itr_state[self.data_parallel_rank]
+                extra_state["train_iterator"] = itr_state
+            epoch = itr_state.get("epoch", 1)
 
             if "previous_training_time" in extra_state:
                 self._previous_training_time = extra_state["previous_training_time"]
@@ -560,7 +564,7 @@ class Trainer(object):
 
             if (
                 itr_state.get("version", 1) >= 2
-                and itr_state["iterations_in_epoch"] == 0
+                and itr_state.get("iterations_in_epoch", 0) == 0
             ):
                 # reset meters at start of epoch
                 reset_meters = True
@@ -1072,9 +1076,9 @@ class Trainer(object):
         # log validation stats
         if self.tpu:
             logging_outputs = self._xla_markstep_and_send_to_cpu(logging_outputs)
-        logging_output = self._reduce_and_log_stats(logging_outputs, sample_size)
+        # logging_output = self._reduce_and_log_stats(logging_outputs, sample_size)
 
-        return logging_output
+        return logging_outputs
 
     def zero_grad(self):
         self.optimizer.zero_grad()

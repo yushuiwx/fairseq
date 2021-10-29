@@ -23,6 +23,7 @@ from fairseq.dataclass.utils import (
     overwrite_args_by_name,
 )
 from fairseq.distributed.fully_sharded_data_parallel import FSDP, has_FSDP
+from fairseq.distributed import utils as distributed_utils
 from fairseq.file_io import PathManager
 from fairseq.models import FairseqDecoder, FairseqEncoder
 from omegaconf import DictConfig, open_dict, OmegaConf
@@ -48,6 +49,19 @@ def save_checkpoint(cfg: CheckpointConfig, trainer, epoch_itr, val_loss):
 
     trainer.consolidate_optimizer()  # TODO(SS): do we need this if no_save_optimizer_state
 
+    extra_state = {"train_iterator": epoch_itr.state_dict(), "val_loss": val_loss}
+    if hasattr(save_checkpoint, "best"):
+        extra_state.update({"best": save_checkpoint.best})
+
+    if getattr(epoch_itr, "sharded_checkpoint", False):
+        local_state_dict = extra_state["train_iterator"]
+        all_state_dicts = distributed_utils.all_gather_list(
+            local_state_dict,
+            max_size=getattr(trainer.cfg.common, "all_gather_list_size", 16384),
+            group=trainer.data_parallel_process_group,
+        )
+        extra_state["train_iterator"] = all_state_dicts
+        
     if not trainer.should_save_checkpoint_on_current_rank:
         if trainer.always_call_state_dict_during_save_checkpoint:
             trainer.state_dict()
@@ -105,10 +119,6 @@ def save_checkpoint(cfg: CheckpointConfig, trainer, epoch_itr, val_loss):
     checkpoint_conds[
         "checkpoint_last{}.pt".format(suffix)
     ] = not cfg.no_last_checkpoints
-
-    extra_state = {"train_iterator": epoch_itr.state_dict(), "val_loss": val_loss}
-    if hasattr(save_checkpoint, "best"):
-        extra_state.update({"best": save_checkpoint.best})
 
     checkpoints = [
         os.path.join(cfg.save_dir, fn) for fn, cond in checkpoint_conds.items() if cond
@@ -265,7 +275,7 @@ def load_checkpoint(cfg: CheckpointConfig, trainer, **passthrough_args):
         # restore iterator from checkpoint
         itr_state = extra_state["train_iterator"]
         epoch_itr = trainer.get_train_iterator(
-            epoch=itr_state["epoch"], load_dataset=True, **passthrough_args
+            epoch=itr_state.get("epoch", 1), load_dataset=True, **passthrough_args
         )
         epoch_itr.load_state_dict(itr_state)
     else:

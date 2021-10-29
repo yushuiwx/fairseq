@@ -194,6 +194,9 @@ def main(cfg: FairseqConfig) -> None:
     train_meter.stop()
     logger.info("done training in {:.1f} seconds".format(train_meter.sum))
 
+    if getattr(epoch_itr, "should_close_after_finished", False):
+        epoch_itr.close()
+
     # ioPath implementation to wait for all asynchronous file writes to complete.
     if cfg.checkpoint.write_checkpoints_asynchronously:
         logger.info(
@@ -456,10 +459,13 @@ def validate(
         # create a new root metrics aggregator so validation metrics
         # don't pollute other aggregators (e.g., train meters)
         with metrics.aggregate(new_root=True) as agg:
+            logging_outputs = []
             for i, sample in enumerate(progress):
                 if cfg.dataset.max_valid_steps is not None and i > cfg.dataset.max_valid_steps:
                     break
-                trainer.valid_step(sample)
+                inner_logging_outputs = trainer.valid_step(sample)
+                logging_outputs.extend(inner_logging_outputs)
+            task.reduce_metrics(logging_outputs, trainer.get_criterion())
 
         # log validation stats
         stats = get_valid_stats(cfg, trainer, agg.get_smoothed_values())
