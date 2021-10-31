@@ -551,7 +551,7 @@ class Trainer(object):
         if extra_state is not None:
             itr_state = extra_state["train_iterator"]
             if type(itr_state) == list:
-                assert len(itr_state) == self.data_parallel_world_size
+                # assert len(itr_state) == self.data_parallel_world_size
                 itr_state = itr_state[self.data_parallel_rank]
                 extra_state["train_iterator"] = itr_state
             epoch = itr_state.get("epoch", 1)
