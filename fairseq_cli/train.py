@@ -42,7 +42,7 @@ from fairseq.logging import meters, metrics, progress_bar
 from fairseq.model_parallel.megatron_trainer import MegatronTrainer
 from fairseq.trainer import Trainer
 from omegaconf import DictConfig, OmegaConf
-
+import gc
 
 
 
@@ -205,6 +205,10 @@ def main(cfg: FairseqConfig) -> None:
         )
         PathManager.async_close()
         logger.info("ioPath PathManager finished waiting.")
+    
+    del epoch_itr
+    gc.collect()
+
 
 
 def should_stop_early(cfg: DictConfig, valid_loss: float) -> bool:
