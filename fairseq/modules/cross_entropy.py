@@ -23,24 +23,42 @@ def _cross_entropy_pytorch(logits, target, ignore_index=None, reduction="mean"):
 
 
 try:
-    import xentropy_cuda
-    from apex.contrib import xentropy
+    import fused_xentropy_cuda
+
+    logger.info("using fused cross entropy")
+    class SoftmaxCrossEntropyLoss(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx, logits, labels, padding_idx=0, half_to_float=False):
+            losses, max_log_sum_exp = fused_xentropy_cuda.forward(
+                logits, labels, half_to_float)
+            if padding_idx >= 0:
+                losses.masked_fill_(labels==padding_idx, 0)
+            ctx.save_for_backward(logits, max_log_sum_exp, labels,
+                torch.LongTensor([padding_idx]))
+
+            return losses
+
+        @staticmethod
+        def backward(ctx, grad_loss):
+            logits, max_log_sum_exp, labels, padding_idx = ctx.saved_tensors
+            if not grad_loss.is_contiguous():
+                grad_loss = grad_loss.contiguous()
+            padding_idx = padding_idx.item()
+            if padding_idx >= 0:
+                grad_loss.masked_fill_(labels==padding_idx, 0)
+            grad_logits = fused_xentropy_cuda.backward(
+                grad_loss.contiguous(), logits, max_log_sum_exp,
+                labels)
+
+            return grad_logits, None, None, None
 
     def cross_entropy(logits, target, ignore_index=-100, reduction="mean"):
         if logits.device == torch.device("cpu"):
             return _cross_entropy_pytorch(logits, target, ignore_index, reduction)
         else:
-            if not getattr(cross_entropy, "_has_logged_once", False):
-                logger.info("using fused cross entropy")
-                cross_entropy._has_logged_once = True
-
-            half_to_float = logits.dtype == torch.half
-            losses = xentropy.SoftmaxCrossEntropyLoss.apply(
-                logits,
-                target,
-                0.0,
-                ignore_index,
-                half_to_float,
+            half_to_float = (logits.dtype == torch.half) or (logits.dtype == torch.bfloat16)
+            losses = SoftmaxCrossEntropyLoss.apply(
+                logits, target, ignore_index, half_to_float,
             )
             if reduction == "sum":
                 return losses.sum()
