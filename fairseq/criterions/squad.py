@@ -11,7 +11,7 @@ from fairseq import metrics, utils
 
 from fairseq.criterions import FairseqCriterion, register_criterion
 from fairseq.dataclass import FairseqDataclass
-from unilm.data.squad import SquadResult, compute_predictions_logits, squad_evaluate
+from fairseq.data.squad import SquadResult, compute_predictions_logits, squad_evaluate
 
 logger = logging.getLogger(__name__)
 
