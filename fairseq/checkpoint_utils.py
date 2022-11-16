@@ -49,6 +49,19 @@ def save_checkpoint(
 
     trainer.consolidate_optimizer()  # TODO(SS): we dont need if no_save_optimizer_state
 
+    extra_state = {"train_iterator": epoch_itr.state_dict(), "val_loss": val_loss}
+    if hasattr(save_checkpoint, "best"):
+        extra_state.update({"best": save_checkpoint.best})
+
+    if getattr(epoch_itr, "sharded_checkpoint", False):
+        local_state_dict = extra_state["train_iterator"]
+        all_state_dicts = dist_utils.all_gather_list(
+            local_state_dict,
+            max_size=getattr(trainer.cfg.common, "all_gather_list_size", 16384),
+            group=trainer.data_parallel_process_group,
+        )
+        extra_state["train_iterator"] = all_state_dicts
+
     if not trainer.should_save_checkpoint_on_current_rank:
         return
 
@@ -96,9 +109,9 @@ def save_checkpoint(
         "checkpoint_last{}.pt".format(suffix)
     ] = not cfg.no_last_checkpoints
 
-    extra_state = {"train_iterator": epoch_itr.state_dict(), "val_loss": val_loss}
-    if hasattr(save_checkpoint, "best"):
-        extra_state.update({"best": save_checkpoint.best})
+    # extra_state = {"train_iterator": epoch_itr.state_dict(), "val_loss": val_loss}
+    # if hasattr(save_checkpoint, "best"):
+    #     extra_state.update({"best": save_checkpoint.best})
 
     checkpoints = [
         os.path.join(cfg.save_dir, fn) for fn, cond in checkpoint_conds.items() if cond
@@ -256,7 +269,7 @@ def load_checkpoint(cfg: CheckpointConfig, trainer, **passthrough_args):
         # restore iterator from checkpoint
         itr_state = extra_state["train_iterator"]
         epoch_itr = trainer.get_train_iterator(
-            epoch=itr_state["epoch"], load_dataset=True, **passthrough_args
+            epoch=itr_state.get("epoch", 1), load_dataset=True, **passthrough_args
         )
         epoch_itr.load_state_dict(itr_state)
     else:
