@@ -412,7 +412,8 @@ class Trainer(object):
             model_state_dict = self.model.state_dict()
             optim_state = None
             if not self.cfg.checkpoint.no_save_optimizer_state:
-                optim_state = self._gathered_optim_state or self.optimizer.state_dict()
+                # optim_state = self._gathered_optim_state or self.optimizer.state_dict()
+                optim_state = getattr(self, '_gathered_optim_state', None) or self.optimizer.state_dict()
             model_save_list = [(
                 filename,
                 model_state_dict,
@@ -909,6 +910,7 @@ class Trainer(object):
         except FloatingPointError:
             # re-run the forward and backward pass with hooks attached to print
             # out where it fails
+            self.save_checkpoint('/mnt/msranlpintern/debug.pt', {})
             self.zero_grad()
             with NanDetector(self.get_model()):
                 for _, sample in enumerate(samples):
