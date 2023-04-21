@@ -77,6 +77,8 @@ class LegacyDistributedDataParallel(nn.Module):
         self.per_device_params_normal = [[k for k in t if not hasattr(k, 'expert')] for t in per_device_params]
         self.per_device_params_expert = [[k for k in t if hasattr(k, 'expert')] for t in per_device_params]
 
+        assert all([len([k for k in t if hasattr(k, 'base_expert')]) == 0 for t in per_device_params])
+
         #start_pdb_on_rank_zero()
         #print('hi')
 
@@ -91,16 +93,14 @@ class LegacyDistributedDataParallel(nn.Module):
     def forward(self, *inputs, **kwargs):
         return self.module(*inputs, **kwargs)
 
-    def all_reduce_params(self, params, curr_buffer, curr_process_group, curr_world_size):
+    def all_reduce_params(self, params, curr_buffer, curr_process_group):
         buffer = curr_buffer
-        nonzero_buffer = False
         if len(params) > 1:
             offset = 0
             for p in params:
                 sz = p.numel()
                 if p.grad is not None:
                     buffer[offset : offset + sz].copy_(p.grad.data.view(-1))
-                    nonzero_buffer = True
                 else:
                     buffer[offset : offset + sz].zero_()
                 offset += sz
@@ -109,15 +109,11 @@ class LegacyDistributedDataParallel(nn.Module):
             p = params[0]
             if p.grad is not None:
                 buffer = p.grad.data
-                nonzero_buffer = True
             elif p.numel() <= curr_buffer.numel():
                 buffer = buffer[: p.numel()]
                 buffer.zero_()
             else:
                 buffer = torch.zeros_like(p)
-
-        if nonzero_buffer:
-            buffer.div_(curr_world_size)
 
         utils.all_reduce(buffer, curr_process_group)
 
@@ -147,11 +143,21 @@ class LegacyDistributedDataParallel(nn.Module):
             self.buffer = next(self.module.parameters()).new(self.buffer_size)
 
         self._all_reduce_grads(self.per_device_params_normal, self.buffer, self.process_group, self.world_size)
-        self._all_reduce_grads(self.per_device_params_expert, self.buffer, self.process_group, self.world_size)
+        self._div_all_grads_by_worldsize(self.per_device_params_expert, self.world_size)
 
+
+    def _div_all_grads_by_worldsize(self, current_params, curr_world_size):
+        for params in current_params:
+            for param in params:
+                if not param.requires_grad:
+                    continue
+                if param.grad is None:
+                    param.grad = torch.zeros_like(param)
+                else:
+                    param.grad.data.div_(curr_world_size)
+                continue
 
     def _all_reduce_grads(self, current_params, curr_buffer, curr_process_group, curr_world_size):
-
         for params in current_params:
             # All-reduce the gradients in buckets
             offset = 0
@@ -159,19 +165,13 @@ class LegacyDistributedDataParallel(nn.Module):
             for param in params:
                 if not param.requires_grad:
                     continue
-
-                if hasattr(param, 'base_expert'):
-                    # Skip gradient sync for unshared parameters
-                    continue
-
-                if hasattr(param, 'expert'):
-                    if param.grad is None:
-                        param.grad = torch.zeros_like(param)
-                    else:
-                        param.grad.data.div_(curr_world_size)
-                    continue
                 if param.grad is None:
                     param.grad = torch.zeros_like(param)
+                else:
+                    param.grad.data.div_(curr_world_size)
+
+
+
                 if param.grad.requires_grad:
                     raise RuntimeError(
                         "DistributedDataParallel only works "
@@ -181,14 +181,14 @@ class LegacyDistributedDataParallel(nn.Module):
                 sz = param.numel()
                 if sz > curr_buffer.numel():
                     # all-reduce big params directly
-                    self.all_reduce_params([param], curr_buffer, curr_process_group, curr_world_size)
+                    self.all_reduce_params([param], curr_buffer, curr_process_group)
                 else:
                     if offset + sz > curr_buffer.numel():
-                        self.all_reduce_params(buffered_params, curr_buffer, curr_process_group, curr_world_size)
+                        self.all_reduce_params(buffered_params, curr_buffer, curr_process_group)
                         offset = 0
                         buffered_params.clear()
                     buffered_params.append(param)
                     offset += sz
 
             if len(buffered_params) > 0:
-                self.all_reduce_params(buffered_params, curr_buffer, curr_process_group, curr_world_size)
+                self.all_reduce_params(buffered_params, curr_buffer, curr_process_group)
