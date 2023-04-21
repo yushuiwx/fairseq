@@ -14,10 +14,6 @@ This version also supports the *no_sync* context manager, which allows faster
 training with `--update-freq`.
 """
 
-# function for 
-
-
-
 from collections import OrderedDict
 from contextlib import contextmanager
 
@@ -77,6 +73,10 @@ class LegacyDistributedDataParallel(nn.Module):
             paramlists[device] += [param]
         self.per_device_params = list(paramlists.values())
 
+        #start_pdb_on_rank_zero()
+
+
+
     @contextmanager
     def no_sync(self):
         """A context manager to disable gradient synchronization."""
@@ -88,8 +88,8 @@ class LegacyDistributedDataParallel(nn.Module):
     def forward(self, *inputs, **kwargs):
         return self.module(*inputs, **kwargs)
 
-    def all_reduce_params(self, params):
-        buffer = self.buffer
+    def all_reduce_params(self, params, curr_buffer):
+        buffer = curr_buffer
         nonzero_buffer = False
         if len(params) > 1:
             offset = 0
@@ -107,7 +107,7 @@ class LegacyDistributedDataParallel(nn.Module):
             if p.grad is not None:
                 buffer = p.grad.data
                 nonzero_buffer = True
-            elif p.numel() <= self.buffer.numel():
+            elif p.numel() <= curr_buffer.numel():
                 buffer = buffer[: p.numel()]
                 buffer.zero_()
             else:
@@ -129,6 +129,7 @@ class LegacyDistributedDataParallel(nn.Module):
             offset += sz
 
 
+
     def all_reduce_grads(self):
         """
         This function must be called explicitly after backward to reduce
@@ -142,7 +143,12 @@ class LegacyDistributedDataParallel(nn.Module):
         if self.buffer is None:
             self.buffer = next(self.module.parameters()).new(self.buffer_size)
 
-        for params in self.per_device_params:
+        self._all_reduce_grads(self.per_device_params, self.buffer)
+
+
+    def _all_reduce_grads(self, current_params, curr_buffer):
+
+        for params in current_params:
             # All-reduce the gradients in buckets
             offset = 0
             buffered_params = []
@@ -169,16 +175,16 @@ class LegacyDistributedDataParallel(nn.Module):
                         "grad"
                     )
                 sz = param.numel()
-                if sz > self.buffer.numel():
+                if sz > curr_buffer.numel():
                     # all-reduce big params directly
-                    self.all_reduce_params([param])
+                    self.all_reduce_params([param], curr_buffer)
                 else:
-                    if offset + sz > self.buffer.numel():
-                        self.all_reduce_params(buffered_params)
+                    if offset + sz > curr_buffer.numel():
+                        self.all_reduce_params(buffered_params, curr_buffer)
                         offset = 0
                         buffered_params.clear()
                     buffered_params.append(param)
                     offset += sz
 
             if len(buffered_params) > 0:
-                self.all_reduce_params(buffered_params)
+                self.all_reduce_params(buffered_params, curr_buffer)
