@@ -71,11 +71,14 @@ class LegacyDistributedDataParallel(nn.Module):
             if paramlists.get(device) is None:
                 paramlists[device] = []
             paramlists[device] += [param]
-        self.per_device_params = list(paramlists.values())
+
+        # split into expert and normal params
+        per_device_params = list(paramlists.values())
+        self.per_device_params_normal = [[k for k in t if not hasattr(k, 'expert')] for t in per_device_params]
+        self.per_device_params_expert = [[k for k in t if hasattr(k, 'expert')] for t in per_device_params]
 
         #start_pdb_on_rank_zero()
-
-
+        #print('hi')
 
     @contextmanager
     def no_sync(self):
@@ -88,7 +91,7 @@ class LegacyDistributedDataParallel(nn.Module):
     def forward(self, *inputs, **kwargs):
         return self.module(*inputs, **kwargs)
 
-    def all_reduce_params(self, params, curr_buffer):
+    def all_reduce_params(self, params, curr_buffer, curr_process_group, curr_world_size):
         buffer = curr_buffer
         nonzero_buffer = False
         if len(params) > 1:
@@ -114,9 +117,9 @@ class LegacyDistributedDataParallel(nn.Module):
                 buffer = torch.zeros_like(p)
 
         if nonzero_buffer:
-            buffer.div_(self.world_size)
+            buffer.div_(curr_world_size)
 
-        utils.all_reduce(buffer, self.process_group)
+        utils.all_reduce(buffer, curr_process_group)
 
         # copy all-reduced grads back into their original place
         offset = 0
@@ -143,10 +146,11 @@ class LegacyDistributedDataParallel(nn.Module):
         if self.buffer is None:
             self.buffer = next(self.module.parameters()).new(self.buffer_size)
 
-        self._all_reduce_grads(self.per_device_params, self.buffer)
+        self._all_reduce_grads(self.per_device_params_normal, self.buffer, self.process_group, self.world_size)
+        self._all_reduce_grads(self.per_device_params_expert, self.buffer, self.process_group, self.world_size)
 
 
-    def _all_reduce_grads(self, current_params, curr_buffer):
+    def _all_reduce_grads(self, current_params, curr_buffer, curr_process_group, curr_world_size):
 
         for params in current_params:
             # All-reduce the gradients in buckets
@@ -164,7 +168,7 @@ class LegacyDistributedDataParallel(nn.Module):
                     if param.grad is None:
                         param.grad = torch.zeros_like(param)
                     else:
-                        param.grad.data.div_(self.world_size)
+                        param.grad.data.div_(curr_world_size)
                     continue
                 if param.grad is None:
                     param.grad = torch.zeros_like(param)
@@ -177,14 +181,14 @@ class LegacyDistributedDataParallel(nn.Module):
                 sz = param.numel()
                 if sz > curr_buffer.numel():
                     # all-reduce big params directly
-                    self.all_reduce_params([param], curr_buffer)
+                    self.all_reduce_params([param], curr_buffer, curr_process_group, curr_world_size)
                 else:
                     if offset + sz > curr_buffer.numel():
-                        self.all_reduce_params(buffered_params, curr_buffer)
+                        self.all_reduce_params(buffered_params, curr_buffer, curr_process_group, curr_world_size)
                         offset = 0
                         buffered_params.clear()
                     buffered_params.append(param)
                     offset += sz
 
             if len(buffered_params) > 0:
-                self.all_reduce_params(buffered_params, curr_buffer)
+                self.all_reduce_params(buffered_params, curr_buffer, curr_process_group, curr_world_size)
