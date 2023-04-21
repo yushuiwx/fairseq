@@ -152,13 +152,13 @@ class LegacyDistributedDataParallel(nn.Module):
             self.buffer = next(self.module.parameters()).new(self.buffer_size)
 
         # reduce normal params
-        self._all_reduce_grads(self.per_device_params_normal, self.buffer, self.process_group)
+        curr_world_size = dist.get_world_size(self.process_group)
+        self._all_reduce_grads(self.per_device_params_normal, self.buffer, self.process_group, curr_world_size)
         # reduce expert params
-        self._all_reduce_grads(self.per_device_params_expert, self.buffer, self.local_pg)
+        self._all_reduce_grads(self.per_device_params_expert, self.buffer, self.local_pg, curr_world_size)
 
 
-    def _all_reduce_grads(self, current_params, curr_buffer, curr_process_group):
-        curr_world_size = dist.get_world_size(curr_process_group)
+    def _all_reduce_grads(self, current_params, curr_buffer, curr_process_group, curr_world_size):
         for params in current_params:
             # All-reduce the gradients in buckets
             offset = 0
