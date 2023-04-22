@@ -23,6 +23,7 @@ from torch import nn
 
 from fairseq.distributed import utils
 
+from torchscale.component.xmoe.global_groups import get_moe_group
 
 def start_pdb_on_rank_zero():
     rank = torch.distributed.get_rank()
@@ -32,6 +33,9 @@ def start_pdb_on_rank_zero():
     else:
         import time
         time.sleep(1e6)
+
+
+NUM_EXPERTS = 4
 
 
 class LegacyDistributedDataParallel(nn.Module):
@@ -82,11 +86,11 @@ class LegacyDistributedDataParallel(nn.Module):
         # assign local pg
         my_rank = dist.get_rank()
         world_size = dist.get_world_size()
-        for rank in range(world_size):
-            members = [rank]
-            pg = dist.new_group(members)
-            if rank == my_rank:
-                self.local_pg = pg
+
+
+        assert world_size % NUM_EXPERTS == 0 or NUM_EXPERTS % world_size == 0
+        assert hasattr(get_moe_group, "_moe_groups") # need to init groups first
+        _, self.local_pg = get_moe_group(NUM_EXPERTS)
 
         #start_pdb_on_rank_zero()
         #print('hi')

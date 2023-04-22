@@ -90,8 +90,8 @@ def main(cfg: FairseqConfig) -> None:
     task = tasks.setup_task(cfg.task)
 
     assert cfg.criterion, "Please specify criterion to train a model"
-    if getattr(cfg.model, "moe_freq", 0) > 0 and getattr(cfg.model, "moe_expert_count", 0) < distributed_utils.get_global_world_size():
-        assert cfg.distributed_training.ddp_backend == 'fully_sharded', 'num_experts < num_gpus only supported by FSDP'
+    #if getattr(cfg.model, "moe_freq", 0) > 0 and getattr(cfg.model, "moe_expert_count", 0) < distributed_utils.get_global_world_size():
+    #    assert cfg.distributed_training.ddp_backend == 'fully_sharded', 'num_experts < num_gpus only supported by FSDP'
 
     # Build model and criterion
     if cfg.distributed_training.ddp_backend == "fully_sharded":
