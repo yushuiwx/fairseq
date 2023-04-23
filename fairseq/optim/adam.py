@@ -38,6 +38,7 @@ class FairseqAdamConfig(FairseqDataclass):
     )
     # TODO common vars below in parent
     tpu: bool = II("common.tpu")
+    bf16: bool = II("common.bf16")
     lr: List[float] = II("optimization.lr")
     block_wise: bool = field(default=False, metadata={"help": "Enables block-wise optimization for 8-bit Adam"})
 
