@@ -12,8 +12,9 @@ from fairseq.optim import FairseqOptimizer
 class FairseqLRScheduler(object):
     def __init__(self, cfg, optimizer):
         super().__init__()
-        if optimizer is not None and not isinstance(optimizer, FairseqOptimizer):
-            raise ValueError("optimizer must be an instance of FairseqOptimizer")
+        # DS: disable check to support wrapping deepspeed optimizer wrapper
+        # if optimizer is not None and not isinstance(optimizer, FairseqOptimizer):
+        #     raise ValueError("optimizer must be an instance of FairseqOptimizer")
         self.cfg = cfg
         self.optimizer = optimizer
         self.best = None
