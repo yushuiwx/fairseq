@@ -35,8 +35,6 @@ def start_pdb_on_rank_zero():
         time.sleep(1e6)
 
 
-NUM_EXPERTS = 4
-
 
 class LegacyDistributedDataParallel(nn.Module):
     """Implements distributed data parallelism at the module level.
@@ -84,13 +82,8 @@ class LegacyDistributedDataParallel(nn.Module):
         assert all([len([k for k in t if hasattr(k, 'base_expert')]) == 0 for t in per_device_params])
 
         # assign local pg
-        my_rank = dist.get_rank()
-        world_size = dist.get_world_size()
-
-
-        assert world_size % NUM_EXPERTS == 0 or NUM_EXPERTS % world_size == 0
         assert hasattr(get_moe_group, "_moe_groups") # need to init groups first
-        _, self.local_pg = get_moe_group(NUM_EXPERTS)
+        _, self.local_pg = get_moe_group()
 
         #start_pdb_on_rank_zero()
         #print('hi')
