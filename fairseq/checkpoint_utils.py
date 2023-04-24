@@ -829,11 +829,10 @@ def load_pretrained_component_from_model(
     return component
 
 
-def verify_checkpoint_directory(save_dir: str) -> None:
+def verify_checkpoint_directory(save_dir: str, rank: int) -> None:
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
-    rank = dist_utils.get_global_rank()
-    temp_file_path = os.path.join(save_dir, f"dummy{rank}")
+    temp_file_path = os.path.join(save_dir, f"dummy-{rank}")
     try:
         with open(temp_file_path, "w"):
             pass
@@ -843,7 +842,4 @@ def verify_checkpoint_directory(save_dir: str) -> None:
         )
         raise e
     else:
-        try:
-            os.remove(temp_file_path)
-        except FileNotFoundError:
-            pass
+        os.remove(temp_file_path)
