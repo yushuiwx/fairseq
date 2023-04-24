@@ -44,6 +44,11 @@ def is_master(cfg: DistributedTrainingConfig):
     return cfg.distributed_rank == 0
 
 
+def is_local_master(cfg: DistributedTrainingConfig):
+    # local master rank
+    return cfg.distributed_rank % cfg.nprocs_per_node == 0
+
+
 def infer_init_method(cfg: DistributedTrainingConfig, force_distributed=False):
     if cfg.distributed_init_method is not None or cfg.tpu:
         return
