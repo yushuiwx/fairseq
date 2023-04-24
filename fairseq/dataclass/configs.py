@@ -205,6 +205,18 @@ class CommonConfig(FairseqDataclass):
     log_nvidia_smi: bool = field(
         default=False, metadata={"help": "log output from nvidia-smi during training"}
     )
+    deepspeed: bool = field(
+        default=False,
+        metadata={"help": "use deepspeed instead of fairseq for training"},
+    )
+    zero: int = field(
+        default=0,
+        metadata={"help": "use deepspeed zero stage 1 or 2 instead of fairseq for training"},
+    )
+    exit_interval: int = field(
+        default=0,
+        metadata={"help": "exit after this many seconds"},
+    )
 
 
 @dataclass

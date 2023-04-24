@@ -35,6 +35,7 @@ from fairseq.logging import meters, metrics, progress_bar
 from fairseq.model_parallel.megatron_trainer import MegatronTrainer
 from fairseq.trainer import Trainer
 from omegaconf import DictConfig, OmegaConf
+from multiprocessing.pool import ThreadPool
 
 
 logging.basicConfig(
@@ -68,7 +69,13 @@ def main(cfg: FairseqConfig) -> None:
     np.random.seed(cfg.common.seed)
     utils.set_torch_seed(cfg.common.seed)
 
-    checkpoint_utils.verify_checkpoint_directory(cfg.checkpoint.save_dir)
+    ds_local_master = cfg.common.deepspeed and distributed_utils.is_local_master(cfg.distributed_training)
+
+    if distributed_utils.is_master(cfg.distributed_training) or ds_local_master:
+        checkpoint_utils.verify_checkpoint_directory(cfg.checkpoint.save_dir, rank=torch.distributed.get_rank())
+        ckp_copy_thread = ThreadPool(processes=1)
+    else:
+        ckp_copy_thread = None
 
     # Print nvidia smi stats
     logger.info(metrics.get_nvidia_smi_gpu_memory_stats_str())
@@ -148,7 +155,12 @@ def main(cfg: FairseqConfig) -> None:
         quantizer = None
 
     # Build trainer
-    if cfg.common.model_parallel_size == 1:
+    # Build trainer
+    if cfg.common.deepspeed:
+        assert quantizer is None, "fairseq wuantizer is not currently supported on deepspeed"
+        from fairseq.ds_trainer import DeepSpeedTrainer
+        trainer = DeepSpeedTrainer(cfg, task, model, criterion)
+    elif cfg.common.model_parallel_size == 1:
         trainer = Trainer(cfg, task, model, criterion, quantizer)
     else:
         trainer = MegatronTrainer(cfg, task, model, criterion)

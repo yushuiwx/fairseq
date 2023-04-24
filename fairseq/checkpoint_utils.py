@@ -26,6 +26,8 @@ from fairseq.file_io import PathManager, torch_load_cpu
 from fairseq.models import FairseqDecoder, FairseqEncoder
 from fairseq import moe_checkpoint_utils
 from omegaconf import DictConfig, open_dict, OmegaConf
+from fairseq.ds_trainer import DeepSpeedTrainer
+
 
 logger = logging.getLogger(__name__)
 
@@ -79,39 +81,46 @@ def save_checkpoint(
 
     suffix = trainer.checkpoint_suffix
     checkpoint_conds = collections.OrderedDict()
-    checkpoint_conds["checkpoint{}{}.pt".format(epoch, suffix)] = (
-        end_of_epoch and not cfg.no_epoch_checkpoints and epoch % cfg.save_interval == 0
-    )
-    checkpoint_conds["checkpoint_{}_{}{}.pt".format(epoch, updates, suffix)] = (
-        not end_of_epoch
-        and cfg.save_interval_updates > 0
-        and updates % cfg.save_interval_updates == 0
-    )
-    checkpoint_conds["checkpoint_best{}.pt".format(suffix)] = (
-        val_loss is not None
-        and (
-            not hasattr(save_checkpoint, "best")
-            or is_better(val_loss, save_checkpoint.best)
+    if isinstance(trainer, DeepSpeedTrainer):
+        checkpoint_conds["checkpoints"] = (
+            not end_of_epoch
+            and cfg.save_interval_updates > 0
+            and updates % cfg.save_interval_updates == 0
         )
-        and not cfg.no_best_checkpoints
-    )
-    if (
-        val_loss is not None
-        and cfg.keep_best_checkpoints > 0
-        and not cfg.no_best_checkpoints
-    ):
+    else:
+        checkpoint_conds["checkpoint{}{}.pt".format(epoch, suffix)] = (
+            end_of_epoch and not cfg.no_epoch_checkpoints and epoch % cfg.save_interval == 0
+        )
+        checkpoint_conds["checkpoint_{}_{}{}.pt".format(epoch, updates, suffix)] = (
+            not end_of_epoch
+            and cfg.save_interval_updates > 0
+            and updates % cfg.save_interval_updates == 0
+        )
+        checkpoint_conds["checkpoint_best{}.pt".format(suffix)] = (
+            val_loss is not None
+            and (
+                not hasattr(save_checkpoint, "best")
+                or is_better(val_loss, save_checkpoint.best)
+            )
+            and not cfg.no_best_checkpoints
+        )
+        if (
+            val_loss is not None
+            and cfg.keep_best_checkpoints > 0
+            and not cfg.no_best_checkpoints
+        ):
+            checkpoint_conds[
+                "checkpoint.best_{}_{:.2f}.pt".format(cfg.best_checkpoint_metric, val_loss)
+            ] = not hasattr(save_checkpoint, "best") or is_better(
+                val_loss, save_checkpoint.best
+            )
         checkpoint_conds[
-            "checkpoint.best_{}_{:.2f}.pt".format(cfg.best_checkpoint_metric, val_loss)
-        ] = not hasattr(save_checkpoint, "best") or is_better(
-            val_loss, save_checkpoint.best
-        )
-    checkpoint_conds[
-        "checkpoint_last{}.pt".format(suffix)
-    ] = not cfg.no_last_checkpoints
+            "checkpoint_last{}.pt".format(suffix)
+        ] = not cfg.no_last_checkpoints
 
-    # extra_state = {"train_iterator": epoch_itr.state_dict(), "val_loss": val_loss}
-    # if hasattr(save_checkpoint, "best"):
-    #     extra_state.update({"best": save_checkpoint.best})
+        # extra_state = {"train_iterator": epoch_itr.state_dict(), "val_loss": val_loss}
+        # if hasattr(save_checkpoint, "best"):
+        #     extra_state.update({"best": save_checkpoint.best})
 
     checkpoints = [
         os.path.join(cfg.save_dir, fn) for fn, cond in checkpoint_conds.items() if cond
@@ -136,13 +145,26 @@ def save_checkpoint(
             else:
                 assert PathManager.copy(src, dest, overwrite=True), f"Failed to copy {src} to {dest}"
 
-        for cp in checkpoints[1:]:
-            copy_or_symlink(src=checkpoints[0], dest=cp)
-            if (trainer.is_moe or trainer.is_base_moe) and not trainer.is_fsdp and trainer.is_data_parallel_master:
-                copy_or_symlink(
-                    src=re.sub("rank-[0-9]+", "shared", checkpoints[0]),
-                    dest=re.sub("rank-[0-9]+", "shared", cp),
-                )
+        if not isinstance(trainer, DeepSpeedTrainer):
+            for cp in checkpoints[1:]:
+                if cfg.write_checkpoints_asynchronously:
+                    # TODO[ioPath]: Need to implement a delayed asynchronous
+                    # file copying/moving feature.
+                    logger.warning(
+                        f"ioPath is not copying {checkpoints[0]} to {cp} "
+                        "since async write mode is on."
+                    )
+                else:
+                    assert PathManager.copy(
+                        checkpoints[0], cp, overwrite=True
+                    ), f"Failed to copy {checkpoints[0]} to {cp}"
+            # for cp in checkpoints[1:]:
+            #     copy_or_symlink(src=checkpoints[0], dest=cp)
+            #     if (trainer.is_moe or trainer.is_base_moe) and not trainer.is_fsdp and trainer.is_data_parallel_master:
+            #         copy_or_symlink(
+            #             src=re.sub("rank-[0-9]+", "shared", checkpoints[0]),
+            #             dest=re.sub("rank-[0-9]+", "shared", cp),
+            #         )
 
         write_timer.stop()
         logger.info(
@@ -214,40 +236,43 @@ def load_checkpoint(cfg: CheckpointConfig, trainer, **passthrough_args):
         )
 
     suffix = trainer.checkpoint_suffix
-    if (
-        cfg.restore_file == "checkpoint_last.pt"
-    ):  # default value of restore_file is 'checkpoint_last.pt'
-        checkpoint_path = os.path.join(
-            cfg.save_dir, "checkpoint_last{}.pt".format(suffix)
-        )
-        first_launch = not PathManager.exists(checkpoint_path)
-        if cfg.finetune_from_model is not None and first_launch:
-            # if there is no last checkpoint to restore, start the finetune from pretrained model
-            # else just use usual logic to load checkpoint, e.g. restart from last checkpoint and etc.
-            if PathManager.exists(cfg.finetune_from_model):
-                checkpoint_path = cfg.finetune_from_model
-                reset_optimizer = True
-                reset_lr_scheduler = True
-                reset_meters = True
-                reset_dataloader = True
-                logger.info(
-                    f"loading pretrained model from {checkpoint_path}: "
-                    "optimizer, lr scheduler, meters, dataloader will be reset"
-                )
-            else:
-                raise ValueError(
-                    f"--funetune-from-model {cfg.finetune_from_model} does not exist"
-                )
-    elif suffix is not None:
-        checkpoint_path = cfg.restore_file.replace(".pt", suffix + ".pt")
+    if isinstance(trainer, DeepSpeedTrainer):
+        checkpoint_path = os.path.join(cfg.save_dir, "checkpoints/")
     else:
-        checkpoint_path = cfg.restore_file
+        if (
+            cfg.restore_file == "checkpoint_last.pt"
+        ):  # default value of restore_file is 'checkpoint_last.pt'
+            checkpoint_path = os.path.join(
+                cfg.save_dir, "checkpoint_last{}.pt".format(suffix)
+            )
+            first_launch = not PathManager.exists(checkpoint_path)
+            if cfg.finetune_from_model is not None and first_launch:
+                # if there is no last checkpoint to restore, start the finetune from pretrained model
+                # else just use usual logic to load checkpoint, e.g. restart from last checkpoint and etc.
+                if PathManager.exists(cfg.finetune_from_model):
+                    checkpoint_path = cfg.finetune_from_model
+                    reset_optimizer = True
+                    reset_lr_scheduler = True
+                    reset_meters = True
+                    reset_dataloader = True
+                    logger.info(
+                        f"loading pretrained model from {checkpoint_path}: "
+                        "optimizer, lr scheduler, meters, dataloader will be reset"
+                    )
+                else:
+                    raise ValueError(
+                        f"--funetune-from-model {cfg.finetune_from_model} does not exist"
+                    )
+        elif suffix is not None:
+            checkpoint_path = cfg.restore_file.replace(".pt", suffix + ".pt")
+        else:
+            checkpoint_path = cfg.restore_file
 
-    if cfg.restore_file != "checkpoint_last.pt" and cfg.finetune_from_model:
-        raise ValueError(
-            "--finetune-from-model and --restore-file (non-default value) "
-            "can not be specified together: " + str(cfg)
-        )
+        if cfg.restore_file != "checkpoint_last.pt" and cfg.finetune_from_model:
+            raise ValueError(
+                "--finetune-from-model and --restore-file (non-default value) "
+                "can not be specified together: " + str(cfg)
+            )
 
     extra_state = trainer.load_checkpoint(
         checkpoint_path,
