@@ -23,7 +23,10 @@ from torch import nn
 
 from fairseq.distributed import utils
 
-from torchscale.component.xmoe.global_groups import get_moe_group
+try:
+    from torchscale.component.xmoe.global_groups import get_moe_group
+except ModuleNotFoundError:
+    get_moe_group = None
 
 def start_pdb_on_rank_zero():
     rank = torch.distributed.get_rank()
