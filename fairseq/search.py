@@ -690,6 +690,8 @@ class Sampling(Search):
 
         if self.sampling_topp > 0:
             # only sample from the smallest set of words whose cumulative probability mass exceeds p
+            if lprobs.max() < -50:
+                lprobs += (-50 - lprobs.max())
             probs, top_indices = self._sample_topp(lprobs)
         elif self.sampling_topk > 0:
             # only sample from top-k candidates
