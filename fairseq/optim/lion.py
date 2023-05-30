@@ -69,6 +69,7 @@ class Lion(Optimizer):
     def __init__(self, params, lr=required, betas = (0.9, 0.99), weight_decay = 0.0,):
         defaults = dict(lr=lr, lr_old=lr, betas=betas, weight_decay=weight_decay)
         super(Lion, self).__init__(params, defaults)
+        self.update_fn = update_fn
 
     @property
     def supports_memory_efficient_fp16(self):
