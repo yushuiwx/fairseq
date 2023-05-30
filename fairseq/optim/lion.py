@@ -17,7 +17,7 @@ from . import FairseqOptimizer, register_optimizer
 
 @dataclass
 class FairseqLionConfig(FairseqDataclass):
-    lion_beta: str = field(
+    lion_betas: str = field(
         default="(0.9, 0.99)", metadata={"help": "betas for Lion optimizer"}
     )
     weight_decay: float = field(default=0.0, metadata={"help": "weight decay"})
