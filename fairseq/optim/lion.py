@@ -79,6 +79,7 @@ class Lion(Optimizer):
     def supports_flat_params(self):
         return True
 
+    @torch.no_grad()
     def step(self, closure=None):
         """Performs a single optimization step.
 
