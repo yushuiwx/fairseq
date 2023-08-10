@@ -786,11 +786,12 @@ class EnsembleModel(nn.Module):
                 if isinstance(decoder_out[1], Tensor):
                     attn = decoder_out[1]
                 else:
-                    attn_holder = decoder_out[1]["attn"]
-                    if isinstance(attn_holder, Tensor):
-                        attn = attn_holder
-                    elif attn_holder is not None:
-                        attn = attn_holder[0]
+                    if "attn" in decoder_out[1]:
+                        attn_holder = decoder_out[1]["attn"]
+                        if isinstance(attn_holder, Tensor):
+                            attn = attn_holder
+                        elif attn_holder is not None:
+                            attn = attn_holder[0]
                 if attn is not None:
                     attn = attn[:, -1, :]
 
