@@ -407,9 +407,14 @@ class Trainer(object):
                     shared_model_state_dict,
                     shared_optimizer_state_dict,
                 ))
-
         else:
             model_state_dict = self.model.state_dict()
+
+            # Remove keys that belong to the teacher model
+            keys_to_remove = [k for k in model_state_dict.keys() if 'teacher' in k]
+            for k in keys_to_remove:
+                model_state_dict.pop(k)
+
             optim_state = None
             if not self.cfg.checkpoint.no_save_optimizer_state:
                 # optim_state = self._gathered_optim_state or self.optimizer.state_dict()
