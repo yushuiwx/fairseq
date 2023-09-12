@@ -923,6 +923,10 @@ class CommonEvalConfig(FairseqDataclass):
         default=False,
         metadata={"help": "if set, use distributed init for MoE generation or evaluation"},
     )
+    is_model_parallel: bool = field(
+        default=False,
+        metadata={"help": "if set, use distributed init for Model Parallel or evaluation"},
+    )
 
 
 @dataclass
