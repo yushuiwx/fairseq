@@ -62,6 +62,7 @@ def get_eval_lm_parser(default_task="language_modeling"):
     add_dataset_args(parser, gen=True)
     add_distributed_training_args(parser, default_world_size=1)
     add_eval_lm_args(parser)
+    add_checkpoint_args(parser)
     return parser
 
 
