@@ -255,9 +255,9 @@ def distributed_init(cfg: FairseqConfig):
                 "Distributed is already initialized, cannot initialize twice!"
             )
         else:
-            logger.info(
-                cfg.distributed_training,
-            )
+            # logger.info(
+            #     cfg.distributed_training,
+            # )
             logger.info(
                 "distributed init (rank {}): {}".format(
                     cfg.distributed_training.distributed_rank,
