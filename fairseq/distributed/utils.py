@@ -256,6 +256,9 @@ def distributed_init(cfg: FairseqConfig):
             )
         else:
             logger.info(
+                cfg.distributed_training,
+            )
+            logger.info(
                 "distributed init (rank {}): {}".format(
                     cfg.distributed_training.distributed_rank,
                     cfg.distributed_training.distributed_init_method,
