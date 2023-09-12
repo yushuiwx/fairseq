@@ -301,6 +301,7 @@ def add_distributed_training_args(parser, default_world_size=None):
     group = parser.add_argument_group("distributed_training")
     if default_world_size is None:
         default_world_size = max(1, torch.cuda.device_count())
+    print("*"*10, default_world_size, "*"*10)
     gen_parser_from_dataclass(
         group, DistributedTrainingConfig(distributed_world_size=default_world_size)
     )
