@@ -45,7 +45,8 @@ def get_training_parser(default_task="translation"):
 def get_generation_parser(interactive=False, default_task="translation"):
     parser = get_parser("Generation", default_task)
     add_dataset_args(parser, gen=True)
-    add_distributed_training_args(parser, default_world_size=1)
+    # add_distributed_training_args(parser, default_world_size=1)
+    add_distributed_training_args(parser)
     add_generation_args(parser)
     add_checkpoint_args(parser)
     if interactive:
