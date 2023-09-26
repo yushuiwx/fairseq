@@ -927,6 +927,10 @@ class CommonEvalConfig(FairseqDataclass):
         default=False,
         metadata={"help": "if set, use distributed init for Model Parallel or evaluation"},
     )
+    input_quant_method: str = field(
+        default="absmax",
+        metadata={"help": ""},
+    )
 
 
 @dataclass
