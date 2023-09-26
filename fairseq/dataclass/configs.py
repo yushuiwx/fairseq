@@ -932,7 +932,19 @@ class CommonEvalConfig(FairseqDataclass):
 @dataclass
 class EvalLMConfig(FairseqDataclass):
     input_quant_method: str = field(
-        default="absmax",
+        default="",
+        metadata={"help": ""},
+    )
+    input_bits: int = field(
+        default=-1,
+        metadata={"help": ""},
+    )
+    weight_quant_method: str = field(
+        default="",
+        metadata={"help": ""},
+    )
+    weight_bits: int = field(
+        default=-1,
         metadata={"help": ""},
     )
     output_word_probs: bool = field(
