@@ -947,6 +947,15 @@ class EvalLMConfig(FairseqDataclass):
         default=-1,
         metadata={"help": ""},
     )
+    smoothquant: bool = field(
+        default=False,
+        metadata={"help": ""},
+    )
+    smoothquant_alpha: float = field(
+        default=-1,
+        metadata={"help": ""},
+    )
+
     output_word_probs: bool = field(
         default=False,
         metadata={
