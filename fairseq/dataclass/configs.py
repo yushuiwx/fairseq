@@ -952,7 +952,7 @@ class EvalLMConfig(FairseqDataclass):
         metadata={"help": ""},
     )
     smoothquant_alpha: float = field(
-        default=-1,
+        default=0.5,
         metadata={"help": ""},
     )
 
