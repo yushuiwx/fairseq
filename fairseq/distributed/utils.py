@@ -78,6 +78,7 @@ def _infer_torch_distributed_launch_init(cfg: DistributedTrainingConfig):
     cfg.distributed_init_method = "env://"
     cfg.distributed_world_size = int(os.environ["WORLD_SIZE"])
     cfg.distributed_rank = int(os.environ["RANK"])
+    cfg.device_id = int(os.environ['LOCAL_RANK'])  # support torchrun
     # processes are created by torch.distributed.launch
     cfg.distributed_no_spawn = True
 
