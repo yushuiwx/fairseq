@@ -959,7 +959,10 @@ class EvalLMConfig(FairseqDataclass):
         default=False
     )
     input_bits_post: Optional[int] = field(
-        default=4
+        default=8
+    )
+    hadamard_group: Optional[int] = field(
+        default=-1,
     )
 
     output_word_probs: bool = field(
