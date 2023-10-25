@@ -955,6 +955,12 @@ class EvalLMConfig(FairseqDataclass):
         default=0.5,
         metadata={"help": ""},
     )
+    smoothquant_bitnet: Optional[bool] = field(
+        default=False
+    )
+    input_bits_post: Optional[int] = field(
+        default=4
+    )
 
     output_word_probs: bool = field(
         default=False,
