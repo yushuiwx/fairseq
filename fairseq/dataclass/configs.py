@@ -964,6 +964,9 @@ class EvalLMConfig(FairseqDataclass):
     hadamard_group: Optional[int] = field(
         default=-1,
     )
+    cal_input_stat: Optional[str] = field(
+        default='none'
+    )
 
     output_word_probs: bool = field(
         default=False,
