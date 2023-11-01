@@ -407,12 +407,18 @@ class Trainer(object):
                     shared_model_state_dict,
                     shared_optimizer_state_dict,
                 ))
-
         else:
             model_state_dict = self.model.state_dict()
+
+            # Remove keys that belong to the teacher model
+            keys_to_remove = [k for k in model_state_dict.keys() if 'teacher' in k]
+            for k in keys_to_remove:
+                model_state_dict.pop(k)
+
             optim_state = None
             if not self.cfg.checkpoint.no_save_optimizer_state:
-                optim_state = self._gathered_optim_state or self.optimizer.state_dict()
+                # optim_state = self._gathered_optim_state or self.optimizer.state_dict()
+                optim_state = getattr(self, '_gathered_optim_state', None) or self.optimizer.state_dict()
             model_save_list = [(
                 filename,
                 model_state_dict,
@@ -748,14 +754,14 @@ class Trainer(object):
             if self.is_moe and getattr(self.cfg.dataset, 'batch_size', None) is not None:
                 try:
                     fixed_src_seq_length = getattr(self.cfg.task, 'tokens_per_sample', None) or self.cfg.task.max_source_positions
-                    assert sample['net_input']['src_tokens'].shape[1] == fixed_src_seq_length
+                    assert sample['gpt']['net_input']['src_tokens'].shape[1] == fixed_src_seq_length
                 except:
-                    logger.warning(str(sample.keys()))
-                    logger.warning(str(sample['net_input'].keys()))
+                    logger.warning(str(sample['gpt'].keys()))
+                    logger.warning(str(sample['gpt']['net_input'].keys()))
                     logger.warning(is_dummy_batch)
                     logger.warning(
                         "wrong seq len {} on rank {}".format(
-                                sample['net_input']['src_tokens'].shape[1],
+                                sample['gpt']['net_input']['src_tokens'].shape[1],
                                 torch.distributed.get_rank(),
                         )
                     )
@@ -909,6 +915,7 @@ class Trainer(object):
         except FloatingPointError:
             # re-run the forward and backward pass with hooks attached to print
             # out where it fails
+            self.save_checkpoint('/mnt/msranlpintern/debug.pt', {})
             self.zero_grad()
             with NanDetector(self.get_model()):
                 for _, sample in enumerate(samples):

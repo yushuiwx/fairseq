@@ -923,10 +923,51 @@ class CommonEvalConfig(FairseqDataclass):
         default=False,
         metadata={"help": "if set, use distributed init for MoE generation or evaluation"},
     )
+    is_model_parallel: bool = field(
+        default=False,
+        metadata={"help": "if set, use distributed init for Model Parallel or evaluation"},
+    )
 
 
 @dataclass
 class EvalLMConfig(FairseqDataclass):
+    input_quant_method: str = field(
+        default="",
+        metadata={"help": ""},
+    )
+    input_bits: int = field(
+        default=-1,
+        metadata={"help": ""},
+    )
+    weight_quant_method: str = field(
+        default="",
+        metadata={"help": ""},
+    )
+    weight_bits: int = field(
+        default=-1,
+        metadata={"help": ""},
+    )
+    smoothquant: bool = field(
+        default=False,
+        metadata={"help": ""},
+    )
+    smoothquant_alpha: float = field(
+        default=0.5,
+        metadata={"help": ""},
+    )
+    smoothquant_bitnet: Optional[bool] = field(
+        default=False
+    )
+    input_bits_post: Optional[int] = field(
+        default=8
+    )
+    hadamard_group: Optional[int] = field(
+        default=-1,
+    )
+    cal_input_stat: Optional[str] = field(
+        default='none'
+    )
+
     output_word_probs: bool = field(
         default=False,
         metadata={

@@ -109,12 +109,16 @@ _code_to_dtype = {
     3: np.int16,
     4: np.int32,
     5: np.int64,
-    6: np.float,
+    # 6: np.float,
     7: np.double,
     8: np.uint16,
     9: np.uint32,
     10: np.uint64,
 }
+try:
+    _code_to_dtype[6] = np.float
+except AttributeError:
+    _code_to_dtype[6] = float
 
 
 def _dtype_header_code(dtype) -> int:
@@ -316,9 +320,13 @@ class IndexedDatasetBuilder:
         np.int16: 2,
         np.int32: 4,
         np.int64: 8,
-        np.float: 4,
+        # np.float: 4,
         np.double: 8,
     }
+    try:
+        element_sizes[np.float] = 4
+    except AttributeError:
+        element_sizes[float] = 4
 
     def __init__(self, out_file, dtype=np.int32):
         self.out_file = open(out_file, "wb")

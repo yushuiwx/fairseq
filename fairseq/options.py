@@ -45,7 +45,8 @@ def get_training_parser(default_task="translation"):
 def get_generation_parser(interactive=False, default_task="translation"):
     parser = get_parser("Generation", default_task)
     add_dataset_args(parser, gen=True)
-    add_distributed_training_args(parser, default_world_size=1)
+    # add_distributed_training_args(parser, default_world_size=1)
+    add_distributed_training_args(parser)
     add_generation_args(parser)
     add_checkpoint_args(parser)
     if interactive:
@@ -62,6 +63,7 @@ def get_eval_lm_parser(default_task="language_modeling"):
     add_dataset_args(parser, gen=True)
     add_distributed_training_args(parser, default_world_size=1)
     add_eval_lm_args(parser)
+    add_checkpoint_args(parser)
     return parser
 
 
@@ -300,6 +302,7 @@ def add_distributed_training_args(parser, default_world_size=None):
     group = parser.add_argument_group("distributed_training")
     if default_world_size is None:
         default_world_size = max(1, torch.cuda.device_count())
+    # print("*"*10, default_world_size, "*"*10)
     gen_parser_from_dataclass(
         group, DistributedTrainingConfig(distributed_world_size=default_world_size)
     )
