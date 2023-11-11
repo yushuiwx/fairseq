@@ -619,7 +619,7 @@ class Trainer(object):
                 self._previous_training_time = extra_state["previous_training_time"]
                 self._start_time = time.time()
 
-            self.lr_step(epoch)
+            # self.lr_step(epoch)
 
             if itr_state.get("version", 1) >= 2 and itr_state.get("iterations_in_epoch", 0) == 0:
                 # reset meters at start of epoch
