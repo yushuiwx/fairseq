@@ -164,6 +164,10 @@ class MoECriterion(FairseqCriterion):
         "unused_expert2_count",    # average number of 2nd experts which process no tokens
         "all_to_all_cpu_time_ms",  # CPU time spent in all to all calls in milliseconds
         "all_to_all_cuda_time_ms", # CUDA ttime spent in all to all calls in milliseconds
+        "moe_second_expert_threshold",
+        "expert1_token",
+        "expert2_token",
+        "moe_expert_noise_threshold",
     ]
     def __init__(self, task, moe_gate_loss_wt, moe_gate_loss_combine_method, moe_gate_loss_transform, sentence_avg):
         super().__init__(task)
