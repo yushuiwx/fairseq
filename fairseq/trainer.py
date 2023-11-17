@@ -915,7 +915,7 @@ class Trainer(object):
         except FloatingPointError:
             # re-run the forward and backward pass with hooks attached to print
             # out where it fails
-            self.save_checkpoint('/mnt/msranlpintern/debug.pt', {})
+            # self.save_checkpoint('/mnt/msranlpintern/debug.pt', {})
             self.zero_grad()
             with NanDetector(self.get_model()):
                 for _, sample in enumerate(samples):

@@ -338,9 +338,9 @@ def load_checkpoint_to_cpu(path, arg_overrides=None, load_on_all_ranks=False, is
         old_primitive = _utils.is_primitive_type
         _utils.is_primitive_type = lambda _: True
         
-        for key, value in arg_overrides.items():
-            if key not in state["cfg"]["model"]:
-                state["cfg"]["model"][key] = value
+        # for key, value in arg_overrides.items():
+        #     if key not in state["cfg"]["model"]:
+        #         state["cfg"]["model"][key] = value
 
         state["cfg"] = OmegaConf.create(state["cfg"])
 
