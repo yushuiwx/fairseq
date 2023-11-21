@@ -208,7 +208,7 @@ class Trainer(object):
     def should_save_checkpoint_on_current_rank(self) -> bool:
         """Indicates whether to save checkpoints on the current DDP rank."""
         has_alt_ffn_dim = getattr(self.cfg.model, "alternate_decoder_ffn_embed_dim", 0) != 0
-        if (self.is_fsdp or (self.is_moe and not has_alt_ffn_dim) or
+        if (self.is_fsdp or (self.is_moe and not has_alt_ffn_dim and self.data_parallel_rank < self.self.cfg.model.moe_expert_count) or
                 getattr(self.cfg.model, "base_layers", 0) > 0):
             return True
         else:
