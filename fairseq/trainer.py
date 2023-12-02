@@ -485,6 +485,7 @@ class Trainer(object):
         reset_lr_scheduler=False,
         optimizer_overrides=None,
         reset_meters=False,
+        reset_dataloader=False,
     ):
         """
         Load all training state from a checkpoint file.
@@ -605,7 +606,13 @@ class Trainer(object):
             itr_state = extra_state["train_iterator"]
             if type(itr_state) == list:
                 # assert len(itr_state) == self.data_parallel_world_size
-                itr_state = itr_state[self.data_parallel_rank]
+                if len(itr_state) != self.data_parallel_world_size:
+                    logger.info(f"Reload dataloader:  #itr_state {len(itr_state)} != #dp_world_size {self.data_parallel_world_size}")
+                    assert reset_dataloader, "please reset the dataloader (--reset-dataloader)"
+                    # li: no worry, because --reset_dataloader, extra_state will be reset
+                    itr_state = itr_state[self.data_parallel_rank % len(itr_state)]
+                else:
+                    itr_state = itr_state[self.data_parallel_rank]
                 extra_state["train_iterator"] = itr_state
             epoch = itr_state.get("epoch", 1)
 
