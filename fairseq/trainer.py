@@ -135,7 +135,7 @@ class Trainer(object):
         self._wrapped_criterion = None
         self._wrapped_model = None
         if self.is_moe:
-            self.expert_group = get_moe_group(self.cfg.model.moe_expert_count)
+            _, self.expert_group = get_moe_group(self.cfg.model.moe_expert_count)
         else:
             self.expert_group = self.data_parallel_process_group
 
