@@ -24,6 +24,7 @@ from fairseq.file_io import PathManager
 from fairseq.logging import meters, metrics
 from fairseq.nan_detector import NanDetector
 from fairseq.optim import lr_scheduler
+from torchscale.component.xmoe.global_groups import get_moe_group
 
 from omegaconf import OmegaConf
 import re
@@ -133,6 +134,10 @@ class Trainer(object):
         self._warn_once = set()
         self._wrapped_criterion = None
         self._wrapped_model = None
+        if self.is_moe:
+            self.expert_group = get_moe_group(self.cfg.model.moe_expert_count)
+        else:
+            self.expert_group = self.data_parallel_process_group
 
         # TODO(myleott): support tpu
         if self.cuda and self.data_parallel_world_size > 1:
@@ -332,7 +337,7 @@ class Trainer(object):
                     "Please use --fp16-no-flatten-grads"
                 )
             else:
-                optim.shard_(self._optimizer, self.data_parallel_process_group)
+                optim.shard_(self._optimizer, self.expert_group)
 
         # We should initialize the learning rate scheduler immediately after
         # building the optimizer, so that the initial learning rate is set.
