@@ -202,7 +202,15 @@ class MoECriterion(FairseqCriterion):
         if self.gate_loss_transform == "neg_log":
             gate_loss = - torch.log(gate_loss)
         gate_loss = sample_size * gate_loss
-        loss = inner_loss + self.gate_loss_weight * gate_loss
+
+        all_KL = 0.
+        count = 0
+        for _, module in model.named_modules():
+            if isinstance(module, MOELayer):
+                all_KL += module.metadata['KL']
+                count += 1
+        
+        loss = inner_loss + self.gate_loss_weight * gate_loss + (- all_KL / count)
         return loss, inner_loss, gate_loss, self.get_moe_metadata(model), sample_size, logging_output
 
     def compute_inner_loss(self, model, sample):
