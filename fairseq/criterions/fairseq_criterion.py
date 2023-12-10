@@ -181,10 +181,11 @@ class MoECriterion(FairseqCriterion):
         2) the sample size, which is used as the denominator for the gradient
         3) logging outputs to display while training
         """
-        loss, inner_loss, moe_loss, moe_metadata, sample_size, logging_output = self.compute_loss(model, sample, reduce=reduce)
+        loss, inner_loss, moe_loss, KL_loss, moe_metadata, sample_size, logging_output = self.compute_loss(model, sample, reduce=reduce)
 
         logging_output["loss"] = loss.data
         logging_output["moe_loss"] = moe_loss.data
+        logging_output["KL_loss"] = KL_loss.data
         logging_output.update(moe_metadata)
 
         return loss, sample_size, logging_output
@@ -209,9 +210,9 @@ class MoECriterion(FairseqCriterion):
             if isinstance(module, MOELayer):
                 all_KL += module.metadata['KL']
                 count += 1
-        
-        loss = inner_loss + self.gate_loss_weight * gate_loss + (- all_KL / count)
-        return loss, inner_loss, gate_loss, self.get_moe_metadata(model), sample_size, logging_output
+        KL_loss = (- all_KL / count)
+        loss = inner_loss + self.gate_loss_weight * gate_loss + KL_loss
+        return loss, inner_loss, gate_loss, KL_loss, self.get_moe_metadata(model), sample_size, logging_output
 
     def compute_inner_loss(self, model, sample):
         """Compute the non-MoE portion of the loss. Default is cross-entropy"""
@@ -235,6 +236,7 @@ class MoECriterion(FairseqCriterion):
         """Aggregate logging outputs from data parallel training."""
         loss_sum = sum(log.get("loss", 0) for log in logging_outputs)
         moe_loss_sum = sum(log.get("moe_loss", 0) for log in logging_outputs)
+        KL_loss_sum = sum(log.get("KL_loss", 0) for log in logging_outputs)
         ntokens = sum(log.get("ntokens", 0) for log in logging_outputs)
         sample_size = sum(log.get("sample_size", 0) for log in logging_outputs)
 
@@ -244,6 +246,9 @@ class MoECriterion(FairseqCriterion):
         )
         metrics.log_scalar(
             "moe_gate_loss", moe_loss_sum / sample_size, sample_size, round=8
+        )
+        metrics.log_scalar(
+            "KL_loss", KL_loss_sum / sample_size, sample_size, round=8
         )
         batch_count = sum(log.get("batch_count", 0) for log in logging_outputs)
         for key in MoECriterion.moe_logging_keys:
