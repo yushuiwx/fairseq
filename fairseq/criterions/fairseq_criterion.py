@@ -211,7 +211,7 @@ class MoECriterion(FairseqCriterion):
                 all_KL += module.metadata['KL']
                 count += 1
         KL_loss = (- all_KL / count)
-        loss = inner_loss + self.gate_loss_weight * gate_loss + KL_loss
+        loss = inner_loss + self.gate_loss_weight * gate_loss + 10.0 * KL_loss
         return loss, inner_loss, gate_loss, KL_loss, self.get_moe_metadata(model), sample_size, logging_output
 
     def compute_inner_loss(self, model, sample):
