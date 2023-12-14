@@ -47,7 +47,7 @@ def get_zero_group(num_gpus):
             get_zero_group._zero_groups = [dist.new_group(g) for g in zero_groups]
 
         my_group_idx = _find_my_group_index(get_zero_group._zero_group_idx)
-        return get_zero_group._zero_group_idx[my_group_idx]
+        return get_zero_group._zero_groups[my_group_idx]
 
 
 class Trainer(object):
