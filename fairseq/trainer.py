@@ -152,10 +152,12 @@ class Trainer(object):
         self._warn_once = set()
         self._wrapped_criterion = None
         self._wrapped_model = None
-        if self.is_moe:
-            _, self.expert_group = get_moe_group(self.cfg.model.moe_expert_count)
-        else:
-            self.expert_group = get_zero_group(torch.cuda.device_count() * 2) # self.data_parallel_process_group
+
+        if self.cfg.distributed_training.zero_sharding == "os":
+            if self.is_moe:
+                _, self.expert_group = get_moe_group(self.cfg.model.moe_expert_count)
+            else:
+                self.expert_group = get_zero_group(torch.cuda.device_count() * 2) # self.data_parallel_process_group
 
         # TODO(myleott): support tpu
         if self.cuda and self.data_parallel_world_size > 1:
