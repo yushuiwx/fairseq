@@ -158,7 +158,7 @@ class Trainer(object):
                 _, self.expert_group = get_moe_group(self.cfg.model.moe_expert_count)
             else:
                 if self.cfg.distributed_training.zero_group_size > 0:
-                    self.expert_group = get_zero_group(torch.cuda.device_count() * 2)
+                    self.expert_group = get_zero_group(torch.cuda.device_count() * self.cfg.distributed_training.zero_group_size)
                 else:
                     self.expert_group = self.data_parallel_process_group
 
