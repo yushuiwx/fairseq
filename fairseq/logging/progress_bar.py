@@ -320,14 +320,6 @@ except ImportError:
         SummaryWriter = None
 
 
-def _close_writers():
-    for w in _tensorboard_writers.values():
-        w.close()
-
-
-atexit.register(_close_writers)
-
-
 class TensorboardProgressBarWrapper(BaseProgressBar):
     """Log to tensorboard."""
 
@@ -390,6 +382,15 @@ try:
     import wandb
 except ImportError:
     wandb = None
+
+
+def _close_writers():
+    for w in _tensorboard_writers.values():
+        w.close()
+    if wandb is not None:
+        wandb.finish()
+
+atexit.register(_close_writers)
 
 
 class WandBProgressBarWrapper(BaseProgressBar):
