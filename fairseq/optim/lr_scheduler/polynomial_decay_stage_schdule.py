@@ -42,6 +42,10 @@ class PolynomialDecayStageLRScheduleConfig(FairseqDataclass):
         default=0,
         metadata={"help": ""},
     )
+    stage_without_wd: int = field(
+        default=100000,
+        metadata={"help": ""},
+    )
 
 
 @register_lr_scheduler("polynomial_decay_stage", dataclass=PolynomialDecayStageLRScheduleConfig)
@@ -64,6 +68,7 @@ class PolynomialDecayStageLRSchedule(FairseqLRScheduler):
         self.optimizer.set_lr(self.warmup_factor * self.lr)
         self.stage_interval = cfg.stage_interval
         self.shrink_ratio = cfg.shrink_ratio
+        self.stage_without_wd = cfg.stage_without_wd
 
     def get_next_lr(self, epoch):
         lrs = self.cfg.lr
@@ -96,5 +101,8 @@ class PolynomialDecayStageLRSchedule(FairseqLRScheduler):
                 self.total_num_update - warmup
             )
             lr = lr_range * pct_remaining ** (self.power) + self.end_learning_rate
+            if stage >= self.stage_without_wd:
+                for group in self.optimizer.param_groups:
+                    group["weight_decay"] = 0
         self.optimizer.set_lr(lr)
         return self.optimizer.get_lr()
