@@ -24,11 +24,30 @@ from fairseq.file_io import PathManager
 from fairseq.logging import meters, metrics
 from fairseq.nan_detector import NanDetector
 from fairseq.optim import lr_scheduler
+from torchscale.component.xmoe.global_groups import get_moe_group, _find_my_group_index
+import torch.distributed as dist
 
 from omegaconf import OmegaConf
 import re
 
 logger = logging.getLogger(__name__)
+
+
+def get_zero_group(num_gpus):
+    if torch.distributed.is_initialized():
+        if not hasattr(get_zero_group, "_zero_groups"):
+            world_size = distributed_utils.get_global_world_size()
+
+            assert world_size % num_gpus == 0
+            ranks_per_group = world_size // num_gpus
+            zero_groups = [[i * num_gpus + j for j in range(num_gpus)]
+                                for i in range(ranks_per_group)]
+
+            get_zero_group._zero_group_idx = zero_groups
+            get_zero_group._zero_groups = [dist.new_group(g) for g in zero_groups]
+
+        my_group_idx = _find_my_group_index(get_zero_group._zero_group_idx)
+        return get_zero_group._zero_groups[my_group_idx]
 
 
 class Trainer(object):
@@ -134,6 +153,15 @@ class Trainer(object):
         self._wrapped_criterion = None
         self._wrapped_model = None
 
+        if self.cfg.distributed_training.zero_sharding == "os":
+            if self.is_moe:
+                _, self.expert_group = get_moe_group(self.cfg.model.moe_expert_count)
+            else:
+                if self.cfg.distributed_training.zero_group_size > 0:
+                    self.expert_group = get_zero_group(torch.cuda.device_count() * self.cfg.distributed_training.zero_group_size)
+                else:
+                    self.expert_group = self.data_parallel_process_group
+
         # TODO(myleott): support tpu
         if self.cuda and self.data_parallel_world_size > 1:
             self._grad_norm_buf = torch.cuda.DoubleTensor(self.data_parallel_world_size)
@@ -208,7 +236,7 @@ class Trainer(object):
     def should_save_checkpoint_on_current_rank(self) -> bool:
         """Indicates whether to save checkpoints on the current DDP rank."""
         has_alt_ffn_dim = getattr(self.cfg.model, "alternate_decoder_ffn_embed_dim", 0) != 0
-        if (self.is_fsdp or (self.is_moe and not has_alt_ffn_dim) or
+        if (self.is_fsdp or (self.is_moe and not has_alt_ffn_dim and self.data_parallel_rank < self.cfg.model.moe_expert_count) or
                 getattr(self.cfg.model, "base_layers", 0) > 0):
             return True
         else:
@@ -332,7 +360,7 @@ class Trainer(object):
                     "Please use --fp16-no-flatten-grads"
                 )
             else:
-                optim.shard_(self._optimizer, self.data_parallel_process_group)
+                optim.shard_(self._optimizer, self.expert_group)
 
         # We should initialize the learning rate scheduler immediately after
         # building the optimizer, so that the initial learning rate is set.

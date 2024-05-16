@@ -320,14 +320,6 @@ except ImportError:
         SummaryWriter = None
 
 
-def _close_writers():
-    for w in _tensorboard_writers.values():
-        w.close()
-
-
-atexit.register(_close_writers)
-
-
 class TensorboardProgressBarWrapper(BaseProgressBar):
     """Log to tensorboard."""
 
@@ -388,8 +380,19 @@ class TensorboardProgressBarWrapper(BaseProgressBar):
 
 try:
     import wandb
+    wandb_run = None
 except ImportError:
     wandb = None
+    wandb_run = None
+
+
+def _close_writers():
+    for w in _tensorboard_writers.values():
+        w.close()
+    if wandb_run is not None:
+        wandb_run.finish()
+
+atexit.register(_close_writers)
 
 
 class WandBProgressBarWrapper(BaseProgressBar):
@@ -403,7 +406,8 @@ class WandBProgressBarWrapper(BaseProgressBar):
 
         # reinit=False to ensure if wandb.init() is called multiple times
         # within one process it still references the same run
-        wandb.init(project=wandb_project, reinit=False, name=run_name)
+        global wandb_run
+        wandb_run = wandb.init(project=wandb_project, reinit=False, name=run_name, id=run_name)
 
     def __iter__(self):
         return iter(self.wrapped_bar)
@@ -420,8 +424,8 @@ class WandBProgressBarWrapper(BaseProgressBar):
 
     def update_config(self, config):
         """Log latest configuration."""
-        if wandb is not None:
-            wandb.config.update(config)
+        if wandb_run is not None:
+            wandb_run.config.update(config)
         self.wrapped_bar.update_config(config)
 
     def _log_to_wandb(self, stats, tag=None, step=None):
@@ -434,9 +438,9 @@ class WandBProgressBarWrapper(BaseProgressBar):
 
         for key in stats.keys() - {"num_updates"}:
             if isinstance(stats[key], AverageMeter):
-                wandb.log({prefix + key: stats[key].val}, step=step)
+                wandb_run.log({prefix + key: stats[key].val}, step=step)
             elif isinstance(stats[key], Number):
-                wandb.log({prefix + key: stats[key]}, step=step)
+                wandb_run.log({prefix + key: stats[key]}, step=step)
 
 
 try:
