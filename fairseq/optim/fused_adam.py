@@ -8,12 +8,22 @@ import types
 import torch
 
 
-def get_fused_adam_class():
+def get_fused_adam_class(v2=False):
     """
     Look for the FusedAdam optimizer from apex. We first try to load the
     "contrib" interface, which is a bit faster than the main interface,
     but is technically deprecated.
     """
+    if v2:
+        try:
+            # fallback to the newer interface
+            from apex.optimizers import FusedAdam as _FusedAdam  # noqa
+            from apex.multi_tensor_apply import multi_tensor_applier
+
+            if multi_tensor_applier.available:
+                return FusedAdamV2
+        except ImportError:
+            pass
     try:
         # The "deprecated" interface in recent versions of apex is a bit
         # faster than the main interface, since we don't use the apex
