@@ -152,19 +152,7 @@ class MoECriterionConfig(FairseqDataclass):
 
 class MoECriterion(FairseqCriterion):
 
-    moe_logging_keys = [
-        "overflow_expert1",        # average % of overflowed tokens from 1st expert
-        "overflow_expert2",        # average % of overflowed tokens from 2nd expert
-        "entropy_gating",          # average entropy of the gating distribution
-        "expert1_balance_top",     # average cumulative % of tokens processed by the most used 20% 1st experts
-        "expert1_balance_bottom",  # average cumulative % of tokens processed by the least used 20% 1st experts
-        "unused_expert1_count",    # average number of 1st experts which process no tokens
-        "expert2_balance_top",     # average cumulative % of tokens processed by the most used 20% 2nd experts
-        "expert2_balance_bottom",  # average cumulative % of tokens processed by the least used 20% 2nd experts
-        "unused_expert2_count",    # average number of 2nd experts which process no tokens
-        "all_to_all_cpu_time_ms",  # CPU time spent in all to all calls in milliseconds
-        "all_to_all_cuda_time_ms", # CUDA ttime spent in all to all calls in milliseconds
-    ]
+    moe_logging_keys = []
     def __init__(self, task, moe_gate_loss_wt, moe_gate_loss_combine_method, moe_gate_loss_transform, sentence_avg):
         super().__init__(task)
         self.gate_loss_weight = moe_gate_loss_wt
