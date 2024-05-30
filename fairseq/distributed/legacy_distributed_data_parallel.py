@@ -86,8 +86,8 @@ class LegacyDistributedDataParallel(nn.Module):
 
         # assign local pg
         ####### # by mega # ################
-        # assert hasattr(get_moe_group, "_moe_groups") # need to init groups first
-        # _, self.local_pg = get_moe_group()
+        assert hasattr(get_moe_group, "_moe_groups") # need to init groups first
+        _, self.local_pg = get_moe_group()
 
         #start_pdb_on_rank_zero()
         #print('hi')
