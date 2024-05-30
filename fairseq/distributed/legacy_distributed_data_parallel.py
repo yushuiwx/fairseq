@@ -85,8 +85,9 @@ class LegacyDistributedDataParallel(nn.Module):
         assert all([len([k for k in t if hasattr(k, 'base_expert')]) == 0 for t in per_device_params])
 
         # assign local pg
-        assert hasattr(get_moe_group, "_moe_groups") # need to init groups first
-        _, self.local_pg = get_moe_group()
+        ####### # by mega # ################
+        # assert hasattr(get_moe_group, "_moe_groups") # need to init groups first
+        # _, self.local_pg = get_moe_group()
 
         #start_pdb_on_rank_zero()
         #print('hi')
