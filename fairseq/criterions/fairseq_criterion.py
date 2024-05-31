@@ -223,7 +223,7 @@ class MoECriterion(FairseqCriterion):
         total_load_balancing_loss = batched_load_balancing_loss(dmoe_args)
         clear_load_balancing_loss()
 
-        total_load_balancing_loss = average_losses_across_data_parallel_group([total_load_balancing_loss])
+        # total_load_balancing_loss = average_losses_across_data_parallel_group([total_load_balancing_loss])
         
         gate_loss = sample_size * total_load_balancing_loss
         loss = inner_loss + gate_loss
