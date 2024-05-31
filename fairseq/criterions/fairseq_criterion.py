@@ -184,6 +184,7 @@ class MoECriterion(FairseqCriterion):
             if l_aux is not None:
                 gate_loss += l_aux
                 gate_count += 1
+        assert 0
         if self.gate_loss_combine_method == "average":
             gate_loss = gate_loss / gate_count
         if self.gate_loss_transform == "neg_log":
