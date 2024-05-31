@@ -18,6 +18,10 @@ from torch.nn.modules.loss import _Loss
 from omegaconf import II
 from fairseq.modules.moe import MOELayer
 
+from megablocks.layers.moe import batched_load_balancing_loss, clear_load_balancing_loss
+from megablocks.layers.arguments import Arguments as dMoEArgs
+from megablocks.layers.arguments import from_megatron
+
 class FairseqCriterion(_Loss):
     def __init__(self, task):
         super().__init__()
@@ -160,6 +164,30 @@ class MoECriterion(FairseqCriterion):
         self.gate_loss_transform = moe_gate_loss_transform
         self.sentence_avg = sentence_avg
 
+        #### dmoe args
+        if args.moe_top1_expert:
+            moe_top_k = 1
+        else:
+            moe_top_k = 2
+        init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+        self.dmoe_args = dMoEArgs(
+                hidden_size=args.decoder_embed_dim,
+                ffn_hidden_size=args.ffn_dim,
+                moe_num_experts=args.decoder_ffn_embed_dim,
+                moe_capacity_factor=1.25,
+                moe_top_k=moe_top_k,
+                init_method=init_method,
+                moe_expert_model_parallelism=True,
+                memory_optimized_mlp=True,
+                expert_parallel_group=None,
+                device=torch.cuda.current_device(),
+                mlp_type='mlp',
+                mlp_impl='sparse',
+                fp16=True,
+                bf16=False,
+                moe_loss_weight=self.gate_loss_weight,
+            )
+
     def forward(self, model, sample, reduce=True):
         """Compute the loss for the given sample.
 
@@ -178,19 +206,24 @@ class MoECriterion(FairseqCriterion):
 
     def compute_loss(self, model, sample, reduce=True):
         net_output, inner_loss, sample_size, logging_output = self.compute_inner_loss(model, sample)
-        gate_loss = 0.0
-        gate_count = 0
-        for l_aux in net_output[1]["l_aux"]:
-            if l_aux is not None:
-                gate_loss += l_aux
-                gate_count += 1
-        assert 0
-        if self.gate_loss_combine_method == "average":
-            gate_loss = gate_loss / gate_count
-        if self.gate_loss_transform == "neg_log":
-            gate_loss = - torch.log(gate_loss)
-        gate_loss = sample_size * gate_loss
-        loss = inner_loss + self.gate_loss_weight * gate_loss
+        
+        # gate_loss = 0.0
+        # gate_count = 0
+        # for l_aux in net_output[1]["l_aux"]:
+        #     if l_aux is not None:
+        #         gate_loss += l_aux
+        #         gate_count += 1
+        
+        # if self.gate_loss_combine_method == "average":
+        #     gate_loss = gate_loss / gate_count
+        # if self.gate_loss_transform == "neg_log":
+        #     gate_loss = - torch.log(gate_loss)
+
+        total_load_balancing_loss = batched_load_balancing_loss(self.dmoe_args)
+        clear_load_balancing_loss()
+        
+        gate_loss = sample_size * total_load_balancing_loss
+        loss = inner_loss + gate_loss
         return loss, inner_loss, gate_loss, self.get_moe_metadata(model), sample_size, logging_output
 
     def compute_inner_loss(self, model, sample):
