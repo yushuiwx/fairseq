@@ -165,28 +165,28 @@ class MoECriterion(FairseqCriterion):
         self.sentence_avg = sentence_avg
 
         #### dmoe args
-        if args.moe_top1_expert:
-            moe_top_k = 1
-        else:
-            moe_top_k = 2
-        init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
-        self.dmoe_args = dMoEArgs(
-                hidden_size=args.decoder_embed_dim,
-                ffn_hidden_size=args.ffn_dim,
-                moe_num_experts=args.decoder_ffn_embed_dim,
-                moe_capacity_factor=1.25,
-                moe_top_k=moe_top_k,
-                init_method=init_method,
-                moe_expert_model_parallelism=True,
-                memory_optimized_mlp=True,
-                expert_parallel_group=None,
-                device=torch.cuda.current_device(),
-                mlp_type='mlp',
-                mlp_impl='sparse',
-                fp16=True,
-                bf16=False,
-                moe_loss_weight=self.gate_loss_weight,
-            )
+        # if args.moe_top1_expert:
+        #     moe_top_k = 1
+        # else:
+        #     moe_top_k = 2
+        # init_method = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+        # self.dmoe_args = dMoEArgs(
+        #         hidden_size=args.decoder_embed_dim,
+        #         ffn_hidden_size=args.ffn_dim,
+        #         moe_num_experts=args.decoder_ffn_embed_dim,
+        #         moe_capacity_factor=1.25,
+        #         moe_top_k=moe_top_k,
+        #         init_method=init_method,
+        #         moe_expert_model_parallelism=True,
+        #         memory_optimized_mlp=True,
+        #         expert_parallel_group=None,
+        #         device=torch.cuda.current_device(),
+        #         mlp_type='mlp',
+        #         mlp_impl='sparse',
+        #         fp16=True,
+        #         bf16=False,
+        #         moe_loss_weight=self.gate_loss_weight,
+        #     )
 
     def forward(self, model, sample, reduce=True):
         """Compute the loss for the given sample.
@@ -219,7 +219,8 @@ class MoECriterion(FairseqCriterion):
         # if self.gate_loss_transform == "neg_log":
         #     gate_loss = - torch.log(gate_loss)
 
-        total_load_balancing_loss = batched_load_balancing_loss(self.dmoe_args)
+        dmoe_args = net_output[1]["dmoe_args_list"][0]
+        total_load_balancing_loss = batched_load_balancing_loss(dmoe_args)
         clear_load_balancing_loss()
         
         gate_loss = sample_size * total_load_balancing_loss
