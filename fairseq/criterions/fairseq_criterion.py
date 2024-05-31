@@ -18,7 +18,7 @@ from torch.nn.modules.loss import _Loss
 from omegaconf import II
 from fairseq.modules.moe import MOELayer
 
-from megablocks.layers.moe import batched_load_balancing_loss, clear_load_balancing_loss
+from megablocks.layers.moe import batched_load_balancing_loss, clear_load_balancing_loss, average_losses_across_data_parallel_group
 from megablocks.layers.arguments import Arguments as dMoEArgs
 from megablocks.layers.arguments import from_megatron
 
@@ -222,6 +222,8 @@ class MoECriterion(FairseqCriterion):
         dmoe_args = net_output[1]["dmoe_args_list"][0]
         total_load_balancing_loss = batched_load_balancing_loss(dmoe_args)
         clear_load_balancing_loss()
+
+        total_load_balancing_loss = average_losses_across_data_parallel_group([total_load_balancing_loss])
         
         gate_loss = sample_size * total_load_balancing_loss
         loss = inner_loss + gate_loss
