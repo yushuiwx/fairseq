@@ -20,7 +20,7 @@ from contextlib import contextmanager
 import torch
 import torch.distributed as dist
 from torch import nn
-
+import gc
 from fairseq.distributed import utils
 
 try:
@@ -159,6 +159,7 @@ class LegacyDistributedDataParallel(nn.Module):
         self._all_reduce_grads(self.per_device_params_expert, self.buffer, self.local_pg, curr_world_size)
         # print("curr_world_size", curr_world_size, "_all_reduce_grads for experts finished.")
         torch.cuda.empty_cache()
+        gc.collect()
 
 
     def _all_reduce_grads(self, current_params, curr_buffer, curr_process_group, curr_world_size):
