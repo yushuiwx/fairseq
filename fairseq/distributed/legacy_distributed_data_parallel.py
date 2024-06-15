@@ -80,9 +80,9 @@ class LegacyDistributedDataParallel(nn.Module):
         # split into expert and normal params
         per_device_params = list(paramlists.values())
         print("len(per_device_params)", len(per_device_params))
-        for t in per_device_params:
-            for k in t:
-                print(k)
+        # for t in per_device_params:
+        #     for k in t:
+        #         print(k)
         self.per_device_params_normal = [[k for k in t if not hasattr(k, 'expert')] for t in per_device_params]
         self.per_device_params_expert = [[k for k in t if hasattr(k, 'expert')] for t in per_device_params]
 
