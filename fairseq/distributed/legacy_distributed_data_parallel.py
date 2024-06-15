@@ -72,6 +72,7 @@ class LegacyDistributedDataParallel(nn.Module):
         # make per-device lists of parameters
         paramlists = OrderedDict()
         for param in self.module.parameters():
+            print(param)
             device = param.device
             if paramlists.get(device) is None:
                 paramlists[device] = []
@@ -81,7 +82,8 @@ class LegacyDistributedDataParallel(nn.Module):
         per_device_params = list(paramlists.values())
         self.per_device_params_normal = [[k for k in t if not hasattr(k, 'experts')] for t in per_device_params]
         self.per_device_params_expert = [[k for k in t if hasattr(k, 'experts')] for t in per_device_params]
-
+        print("self.per_device_params_expert", self.per_device_params_expert)
+        
         assert all([len([k for k in t if hasattr(k, 'base_expert')]) == 0 for t in per_device_params])
 
         # assign local pg
@@ -158,7 +160,6 @@ class LegacyDistributedDataParallel(nn.Module):
         # reduce expert params
         self._all_reduce_grads(self.per_device_params_expert, self.buffer, self.local_pg, curr_world_size)
         # print("curr_world_size", curr_world_size, "_all_reduce_grads for experts finished.")
-        print("self.per_device_params_expert", self.per_device_params_expert)
 
 
     def _all_reduce_grads(self, current_params, curr_buffer, curr_process_group, curr_world_size):
