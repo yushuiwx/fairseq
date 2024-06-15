@@ -71,22 +71,37 @@ class LegacyDistributedDataParallel(nn.Module):
 
         # make per-device lists of parameters
         paramlists = OrderedDict()
-        print("module", module)
-        for param in self.module.parameters():
-            # print(param)
+
+
+        
+        # for param in self.module.parameters():
+        #     device = param.device
+        #     if paramlists.get(device) is None:
+        #         paramlists[device] = []
+        #     paramlists[device] += [param]
+
+        # # split into expert and normal params
+        # per_device_params = list(paramlists.values())
+        # self.per_device_params_normal = [[k for k in t if not hasattr(k, 'experts')] for t in per_device_params]
+        # self.per_device_params_expert = [[k for k in t if hasattr(k, 'experts')] for t in per_device_params]
+
+
+        # 按设备分组参数，并保留参数名称
+        for name, param in self.module.named_parameters():
             device = param.device
             if paramlists.get(device) is None:
                 paramlists[device] = []
-            paramlists[device] += [param]
-
-        # split into expert and normal params
+            paramlists[device].append((name, param))
+        
+        # 获取按设备分组的参数列表
         per_device_params = list(paramlists.values())
-        self.per_device_params_normal = [[k for k in t if not hasattr(k, 'experts')] for t in per_device_params]
-        self.per_device_params_expert = [[k for k in t if hasattr(k, 'experts')] for t in per_device_params]
+        
+        # 分割专家参数和普通参数
+        self.per_device_params_normal = [[param for name, param in t if 'experts' not in name] for t in per_device_params]
+        self.per_device_params_expert = [[param for name, param in t if 'experts' in name] for t in per_device_params]
+        
+        # 打印专家参数（可选）
         print("self.per_device_params_expert", self.per_device_params_expert)
-        for t in per_device_params:
-            for k in t:
-                print(k)
         
         assert all([len([k for k in t if hasattr(k, 'base_expert')]) == 0 for t in per_device_params])
 
