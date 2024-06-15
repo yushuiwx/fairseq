@@ -95,6 +95,7 @@ class LegacyDistributedDataParallel(nn.Module):
         
         # 获取按设备分组的参数列表
         per_device_params = list(paramlists.values())
+        print("len(per_device_params)", len(per_device_params))
         
         # 分割专家参数和普通参数
         self.per_device_params_normal = [[param for name, param in t if 'experts' not in name] for t in per_device_params]
