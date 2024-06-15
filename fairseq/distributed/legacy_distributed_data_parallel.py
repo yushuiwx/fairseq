@@ -71,8 +71,9 @@ class LegacyDistributedDataParallel(nn.Module):
 
         # make per-device lists of parameters
         paramlists = OrderedDict()
+        print("module", module)
         for param in self.module.parameters():
-            print(param)
+            # print(param)
             device = param.device
             if paramlists.get(device) is None:
                 paramlists[device] = []
