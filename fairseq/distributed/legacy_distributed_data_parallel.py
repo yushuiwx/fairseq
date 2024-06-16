@@ -87,7 +87,7 @@ class LegacyDistributedDataParallel(nn.Module):
         
         self.per_device_params_normal = [[k for k in t if not hasattr(k, 'experts')] for t in per_device_params]
         self.per_device_params_expert = [[k for k in t if hasattr(k, 'experts')] for t in per_device_params]
-        print("self.per_device_params_expert", len(self.per_device_params_expert), "self.per_device_params_normal", len(self.per_device_params_normal))
+        print("self.per_device_params_expert", len(self.per_device_params_expert), len(self.per_device_params_expert[0]), "self.per_device_params_normal", len(self.per_device_params_normal), len(self.per_device_params_normal[0]))
 
         # # 按设备分组参数，并保留参数名称
         # for name, param in self.module.named_parameters():
