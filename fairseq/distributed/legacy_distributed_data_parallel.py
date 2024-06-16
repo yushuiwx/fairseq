@@ -163,9 +163,9 @@ class LegacyDistributedDataParallel(nn.Module):
         curr_world_size = dist.get_world_size(self.process_group)
         self._all_reduce_grads(self.per_device_params_normal, self.buffer, self.process_group, curr_world_size)
         # reduce expert params
-        print("begin _all_reduce_grads_for_expert", len(self.per_device_params_expert), len(self.per_device_params_expert[0]), self.buffer, self.local_pg, curr_world_size)
+        # print("begin _all_reduce_grads_for_expert", len(self.per_device_params_expert), len(self.per_device_params_expert[0]), self.buffer, self.local_pg, curr_world_size)
         self._all_reduce_grads_for_expert(self.per_device_params_expert, self.buffer, self.local_pg, curr_world_size)
-        print("curr_world_size", curr_world_size, "_all_reduce_grads for experts finished.")
+        # print("curr_world_size", curr_world_size, "_all_reduce_grads for experts finished.")
 
 
     def _all_reduce_grads(self, current_params, curr_buffer, curr_process_group, curr_world_size):
