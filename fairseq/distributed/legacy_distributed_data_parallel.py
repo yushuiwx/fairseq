@@ -88,26 +88,6 @@ class LegacyDistributedDataParallel(nn.Module):
         self.per_device_params_normal = [[k for k in t if not hasattr(k, 'expert')] for t in per_device_params]
         self.per_device_params_expert = [[k for k in t if hasattr(k, 'expert')] for t in per_device_params]
         print("self.per_device_params_expert", len(self.per_device_params_expert), len(self.per_device_params_expert[0]), "self.per_device_params_normal", len(self.per_device_params_normal), len(self.per_device_params_normal[0]))
-
-        # # 按设备分组参数，并保留参数名称
-        # for name, param in self.module.named_parameters():
-        #     device = param.device
-        #     if paramlists.get(device) is None:
-        #         paramlists[device] = []
-        #     paramlists[device].append((name, param))
-        
-        # # 获取按设备分组的参数列表
-        # per_device_params = list(paramlists.values())
-        # print("len(per_device_params)", len(per_device_params))
-        
-        # # 分割专家参数和普通参数
-        # self.per_device_params_normal = [[param for name, param in t if 'experts' not in name] for t in per_device_params]
-        # self.per_device_params_expert = [[param for name, param in t if 'experts' in name] for t in per_device_params]
-        
-        # # 打印专家参数（可选）
-        # print("self.per_device_params_expert", len(self.per_device_params_expert), "self.per_device_params_normal", len(self.per_device_params_normal))
-        # for t in self.per_device_params_expert:
-        #     print(t)
                 
         assert all([len([k for k in t if hasattr(k, 'base_expert')]) == 0 for t in per_device_params])
 
@@ -183,11 +163,47 @@ class LegacyDistributedDataParallel(nn.Module):
         curr_world_size = dist.get_world_size(self.process_group)
         self._all_reduce_grads(self.per_device_params_normal, self.buffer, self.process_group, curr_world_size)
         # reduce expert params
-        self._all_reduce_grads(self.per_device_params_expert, self.buffer, self.local_pg, curr_world_size)
-        # print("curr_world_size", curr_world_size, "_all_reduce_grads for experts finished.")
+        print("begin _all_reduce_grads_for_expert", len(self.per_device_params_expert), len(self.per_device_params_expert[0]), self.buffer, self.local_pg, curr_world_size)
+        self._all_reduce_grads_for_expert(self.per_device_params_expert, self.buffer, self.local_pg, curr_world_size)
+        print("curr_world_size", curr_world_size, "_all_reduce_grads for experts finished.")
 
 
     def _all_reduce_grads(self, current_params, curr_buffer, curr_process_group, curr_world_size):
+        for params in current_params:
+            # All-reduce the gradients in buckets
+            offset = 0
+            buffered_params = []
+            for param in params:
+                if not param.requires_grad:
+                    continue
+                if param.grad is None:
+                    param.grad = torch.zeros_like(param)
+                else:
+                    param.grad.data.div_(curr_world_size)
+
+                if param.grad.requires_grad:
+                    raise RuntimeError(
+                        "DistributedDataParallel only works "
+                        "with gradients that don't require "
+                        "grad"
+                    )
+                sz = param.numel()
+                if sz > curr_buffer.numel():
+                    # all-reduce big params directly
+                    self.all_reduce_params([param], curr_buffer, curr_process_group)
+                else:
+                    if offset + sz > curr_buffer.numel():
+                        self.all_reduce_params(buffered_params, curr_buffer, curr_process_group)
+                        offset = 0
+                        buffered_params.clear()
+                    buffered_params.append(param)
+                    offset += sz
+
+            if len(buffered_params) > 0:
+                self.all_reduce_params(buffered_params, curr_buffer, curr_process_group)
+
+
+    def _all_reduce_grads_for_expert(self, current_params, curr_buffer, curr_process_group, curr_world_size):
         for params in current_params:
             # All-reduce the gradients in buckets
             offset = 0
