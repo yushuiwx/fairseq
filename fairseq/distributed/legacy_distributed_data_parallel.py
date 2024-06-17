@@ -213,6 +213,7 @@ class LegacyDistributedDataParallel(nn.Module):
                     assert 0
                     continue
                 if param.grad is None:
+                    assert param.requires_grad
                     assert 0
                     param.grad = torch.zeros_like(param)
                 else:
