@@ -210,12 +210,14 @@ class LegacyDistributedDataParallel(nn.Module):
             buffered_params = []
             for param in params:
                 if not param.requires_grad:
+                    assert 0
                     continue
                 if param.grad is None:
+                    assert 0
                     param.grad = torch.zeros_like(param)
                 else:
                     param.grad.data.div_(curr_world_size)
-
+                print(param.grad)
                 if param.grad.requires_grad:
                     raise RuntimeError(
                         "DistributedDataParallel only works "
