@@ -218,7 +218,7 @@ class LegacyDistributedDataParallel(nn.Module):
                     param.grad = torch.zeros_like(param)
                 else:
                     param.grad.data.div_(curr_world_size)
-                print(param.grad)
+                print(param.grad.sum())
                 if param.grad.requires_grad:
                     raise RuntimeError(
                         "DistributedDataParallel only works "
