@@ -35,7 +35,8 @@ from fairseq.logging import meters, metrics, progress_bar
 from fairseq.model_parallel.megatron_trainer import MegatronTrainer
 from fairseq.trainer import Trainer
 from omegaconf import DictConfig, OmegaConf
-
+import os
+import signal
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -207,6 +208,11 @@ def main(cfg: FairseqConfig) -> None:
 
     # if getattr(epoch_itr, "should_close_after_finished", True):
     epoch_itr.close()
+    if dist.is_initialized():
+        dist.barrier()
+        dist.destroy_process_group() 
+
+    os.kill(os.getpid(), signal.SIGTERM)
 
     # ioPath implementation to wait for all asynchronous file writes to complete.
     if cfg.checkpoint.write_checkpoints_asynchronously:
