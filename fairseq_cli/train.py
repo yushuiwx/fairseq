@@ -207,7 +207,7 @@ def main(cfg: FairseqConfig) -> None:
     logger.info("done training in {:.1f} seconds".format(train_meter.sum))
     print("begin to end full process....")
     # if getattr(epoch_itr, "should_close_after_finished", True):
-    epoch_itr.close()
+    # epoch_itr.close()
     import subprocess
     command = "ps aux | grep '[p]ython' | awk '{print $2}' | xargs -r kill -9"
     result = subprocess.run(command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
