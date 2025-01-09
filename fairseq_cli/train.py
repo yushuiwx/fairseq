@@ -205,7 +205,7 @@ def main(cfg: FairseqConfig) -> None:
         )
     train_meter.stop()
     logger.info("done training in {:.1f} seconds".format(train_meter.sum))
-
+    print("begin to end full process....")
     # if getattr(epoch_itr, "should_close_after_finished", True):
     epoch_itr.close()
     if dist.is_initialized():
@@ -213,6 +213,7 @@ def main(cfg: FairseqConfig) -> None:
         dist.destroy_process_group() 
 
     os.kill(os.getpid(), signal.SIGTERM)
+    print("after os kill....")
 
     # ioPath implementation to wait for all asynchronous file writes to complete.
     if cfg.checkpoint.write_checkpoints_asynchronously:
