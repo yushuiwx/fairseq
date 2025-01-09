@@ -213,6 +213,9 @@ def main(cfg: FairseqConfig) -> None:
         dist.destroy_process_group() 
 
     os.kill(os.getpid(), signal.SIGTERM)
+    import sys
+    sys.exit(0)
+    os._exit(0)
     print("after os kill....")
 
     # ioPath implementation to wait for all asynchronous file writes to complete.
